@@ -38,6 +38,7 @@ type FormValues = z.infer<typeof schema>
 
 export function ProjectQuoteForm() {
   const [submitted, setSubmitted] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   const defaultValues = useMemo<FormValues>(
     () => ({
@@ -60,8 +61,20 @@ export function ProjectQuoteForm() {
   })
 
   const onSubmit = async (values: FormValues) => {
-    // No backend wired here yet; this keeps UX consistent while you hook up API/email.
-    console.log("Project quote request:", values)
+    setSubmitError(null)
+    setSubmitted(false)
+
+    const res = await fetch("/api/contact", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(values),
+    })
+
+    if (!res.ok) {
+      const data = (await res.json().catch(() => null)) as { error?: string } | null
+      throw new Error(data?.error || "Failed to submit. Please try again.")
+    }
+
     setSubmitted(true)
     form.reset(defaultValues)
   }
@@ -105,9 +118,9 @@ export function ProjectQuoteForm() {
                   <span>Email</span>
                   <a
                     className="text-primary hover:underline font-medium"
-                    href="mailto:sales@ddp-labs.furieo.com"
+                    href="mailto:sales@ddplabs.org"
                   >
-                    sales@ddp-labs.furieo.com
+                    sales@ddplabs.org
                   </a>
                 </div>
                 <div className="flex items-center justify-between gap-4">
@@ -136,9 +149,23 @@ export function ProjectQuoteForm() {
                   Thanks—request received. We&apos;ll get back to you within 24 hours.
                 </div>
               )}
+              {submitError && (
+                <div className="mb-6 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-foreground">
+                  {submitError}
+                </div>
+              )}
 
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-5">
+                <form
+                  onSubmit={form.handleSubmit(async (values) => {
+                    try {
+                      await onSubmit(values)
+                    } catch (e) {
+                      setSubmitError(e instanceof Error ? e.message : "Failed to submit.")
+                    }
+                  })}
+                  className="grid gap-5"
+                >
                   <div className="grid md:grid-cols-2 gap-5">
                     <FormField
                       control={form.control}
@@ -320,7 +347,7 @@ export function ProjectQuoteForm() {
                     className="bg-primary text-primary-foreground hover:bg-primary/90"
                     disabled={form.formState.isSubmitting}
                   >
-                    Get Project Quote
+                    {form.formState.isSubmitting ? "Submitting…" : "Get Project Quote"}
                   </Button>
                 </form>
               </Form>
